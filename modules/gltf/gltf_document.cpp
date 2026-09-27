@@ -2882,7 +2882,7 @@ Error GLTFDocument::_serialize_materials(Ref<GLTFState> p_state) {
 		}
 
 		if (base_material->get_feature(BaseMaterial3D::FEATURE_EMISSION)) {
-			const Color emission_color = base_material->get_emission().linear_to_srgb();
+			const Color emission_color = base_material->get_emission().srgb_to_linear();
 			Array arr = { emission_color.r, emission_color.g, emission_color.b };
 			mat_dict["emissiveFactor"] = arr;
 
