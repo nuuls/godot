@@ -42,10 +42,21 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_joystick.h>
 
+static bool godot_use_gamepad_mode(SDL_JoystickID id) {
+	if (!SDL_IsGamepad(id)) {
+		return false;
+	}
+	// EdgeTX/OpenTX radios: SDL's Linux auto-mapping mangles them, use raw joystick mode.
+	if (SDL_GetJoystickVendorForID(id) == 0x1209 && SDL_GetJoystickProductForID(id) == 0x4f54) {
+		return false;
+	}
+	return true;
+}
+
 // Macro to skip the SDL joystick event handling if the device is an SDL gamepad, because
 // there are separate events for SDL gamepads
 #define SKIP_EVENT_FOR_GAMEPAD \
-	if (SDL_IsGamepad(sdl_event.jdevice.which)) { \
+	if (godot_use_gamepad_mode(sdl_event.jdevice.which)) { \
 		continue; \
 	}
 
@@ -135,7 +146,7 @@ void JoypadSDL::process_events() {
 				String device_name;
 
 				// Gamepads must be opened with SDL_OpenGamepad to get their special remapped events
-				if (SDL_IsGamepad(sdl_event.jdevice.which)) {
+				if (godot_use_gamepad_mode(sdl_event.jdevice.which)) {
 					gamepad = SDL_OpenGamepad(sdl_event.jdevice.which);
 
 					ERR_CONTINUE_MSG(!gamepad,
@@ -171,8 +182,8 @@ void JoypadSDL::process_events() {
 
 				Dictionary joypad_info;
 				// Skip Godot's mapping system if SDL already handles the joypad's mapping.
-				joypad_info["mapping_handled"] = SDL_IsGamepad(sdl_event.jdevice.which);
 				joypad_info["raw_name"] = String::utf8(SDL_GetJoystickName(joy));
+				joypad_info["mapping_handled"] = godot_use_gamepad_mode(sdl_event.jdevice.which);
 				joypad_info["vendor_id"] = itos(SDL_GetJoystickVendor(joy));
 				joypad_info["product_id"] = itos(SDL_GetJoystickProduct(joy));
 
@@ -310,7 +321,7 @@ void JoypadSDL::close_joypad(int p_pad_idx) {
 	joypads[p_pad_idx].attached = false;
 	sdl_instance_id_to_joypad_id.erase(sdl_instance_idx);
 
-	if (SDL_IsGamepad(sdl_instance_idx)) {
+	if (godot_use_gamepad_mode(sdl_instance_idx)) {
 		SDL_Gamepad *gamepad = SDL_GetGamepadFromID(sdl_instance_idx);
 		SDL_CloseGamepad(gamepad);
 	} else {
