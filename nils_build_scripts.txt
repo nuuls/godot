@@ -1,0 +1,2 @@
+scons platform=linuxbsd arch=x86_64 target=template_release production=yes
+scons platform=linuxbsd arch=x86_64 target=editor production=yes
