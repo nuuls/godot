@@ -1268,6 +1268,12 @@ void WaylandThread::_wl_registry_on_global_remove(void *data, struct wl_registry
 			if (ss->wl_output_name == name) {
 				registry->wl_outputs.erase(it);
 
+				// A new output could reuse the address, don't leave it in the windows'
+				// entered outputs in case the compositor didn't send a leave.
+				for (KeyValue<DisplayServerEnums::WindowID, WindowState> &pair : registry->wayland_thread->windows) {
+					pair.value.wl_outputs.erase(wl_output);
+				}
+
 				memdelete(ss);
 				wl_output_destroy(wl_output);
 
@@ -5308,6 +5314,26 @@ WaylandThread::ScreenData WaylandThread::screen_get_data(int p_screen) const {
 
 int WaylandThread::get_screen_count() const {
 	return registry.wl_outputs.size();
+}
+
+// Returns the index of the screen the window is on (from `wl_surface::enter`),
+// otherwise -1. A window spanning several outputs counts as being on the
+// earliest one it entered.
+int WaylandThread::window_get_current_screen(DisplayServerEnums::WindowID p_window_id) const {
+	const WindowState *ws = windows.getptr(p_window_id);
+	ERR_FAIL_NULL_V(ws, -1);
+
+	for (struct wl_output *wl_output : ws->wl_outputs) {
+		int index = 0;
+		for (struct wl_output *screen_output : registry.wl_outputs) {
+			if (screen_output == wl_output) {
+				return index;
+			}
+			index++;
+		}
+	}
+
+	return -1;
 }
 
 bool WaylandThread::input_has_touch() const {

@@ -1328,6 +1328,7 @@ public:
 
 	ScreenData screen_get_data(int p_screen) const;
 	int get_screen_count() const;
+	int window_get_current_screen(DisplayServerEnums::WindowID p_window_id) const;
 
 	bool input_has_touch() const;
 
