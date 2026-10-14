@@ -1121,9 +1121,13 @@ void DisplayServerWayland::window_set_drop_files_callback(const Callable &p_call
 }
 
 int DisplayServerWayland::window_get_current_screen(DisplayServerEnums::WindowID p_window_id) const {
+	MutexLock mutex_lock(wayland_thread.mutex);
+
 	ERR_FAIL_COND_V(!windows.has(p_window_id), DisplayServerEnums::INVALID_SCREEN);
-	// Standard Wayland APIs don't support getting the screen of a window.
-	return 0;
+	// Standard Wayland APIs don't give a window's position, but the compositor
+	// tells us which outputs its surface is on. Until it does, assume the first.
+	int screen = wayland_thread.window_get_current_screen(p_window_id);
+	return screen >= 0 ? screen : 0;
 }
 
 void DisplayServerWayland::window_set_current_screen(int p_screen, DisplayServerEnums::WindowID p_window_id) {
