@@ -3856,20 +3856,24 @@ void WaylandThread::_poll_events_thread(void *p_data) {
 
 		wl_display_flush(data->wl_display);
 
-		// Wait for the event file descriptor to have new data.
-		poll(&poll_fd, 1, -1);
+		// Wait for the event file descriptor to have new data, but not forever:
+		// `destroy()` wakes us up with a roundtrip, which only works if we're already
+		// polling. If we're still dispatching at that moment, the main thread reads the
+		// roundtrip's reply itself and nothing might ever arrive for us to wake up to,
+		// leaving `destroy()` waiting for this thread forever (a hang on exit).
+		int poll_result = poll(&poll_fd, 1, 100);
 
 		if (data->thread_done.is_set()) {
 			wl_display_cancel_read(data->wl_display);
 			break;
 		}
 
-		if (poll_fd.revents | POLLIN) {
+		if (poll_result == 0) {
+			// Timed out. Stop signaling that we want to read.
+			wl_display_cancel_read(data->wl_display);
+		} else {
 			// Load the queues with fresh new data.
 			wl_display_read_events(data->wl_display);
-		} else {
-			// Oh well... Stop signaling that we want to read.
-			wl_display_cancel_read(data->wl_display);
 		}
 
 		// The docs advise to redispatch unconditionally and it looks like that if we
